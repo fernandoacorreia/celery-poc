@@ -2,21 +2,28 @@
 Celery Client Examples
 Demonstrates various ways to call tasks and retrieve results
 """
+
 import time
 import logging
 from celery import group, chain, chord
 from celery.result import AsyncResult
 from celery_poc.tasks import (
-    app, add, multiply, divide, process_data,
-    download_file, risky_operation, parallel_task,
-    process_step_1, process_step_2, process_step_3
+    app,
+    add,
+    multiply,
+    process_data,
+    download_file,
+    risky_operation,
+    parallel_task,
+    process_step_1,
+    process_step_2,
+    process_step_3,
 )
 from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s] %(levelname)s - %(message)s'
+    level=logging.INFO, format="[%(asctime)s] %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -24,6 +31,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # BASIC TASK CALLING
 # ============================================================================
+
 
 def example_basic_task():
     """
@@ -51,6 +59,7 @@ def example_basic_task():
 # TASK WITH APPLY_ASYNC (More Control)
 # ============================================================================
 
+
 def example_apply_async():
     """
     Example 2: Using apply_async for more control
@@ -63,14 +72,14 @@ def example_apply_async():
     result = multiply.apply_async(
         args=[5, 3],
         countdown=2,  # Delay execution by 2 seconds
-        expires=60,   # Task expires in 60 seconds
+        expires=60,  # Task expires in 60 seconds
         retry=True,
         retry_policy={
-            'max_retries': 3,
-            'interval_start': 0,
-            'interval_step': 0.2,
-            'interval_max': 0.2,
-        }
+            "max_retries": 3,
+            "interval_start": 0,
+            "interval_step": 0.2,
+            "interval_max": 0.2,
+        },
     )
 
     logger.info(f"Task scheduled with ID: {result.id}")
@@ -86,6 +95,7 @@ def example_apply_async():
 # ============================================================================
 # CHECKING TASK STATUS
 # ============================================================================
+
 
 def example_task_status():
     """
@@ -104,7 +114,7 @@ def example_task_status():
         state = result.state
         logger.info(f"Task state: {state}")
 
-        if state == 'PROGRESS':
+        if state == "PROGRESS":
             info = result.info
             logger.info(f"Progress: {info.get('percent', 0)}%")
 
@@ -121,6 +131,7 @@ def example_task_status():
 # ERROR HANDLING
 # ============================================================================
 
+
 def example_error_handling():
     """
     Example 4: Handling task errors
@@ -130,7 +141,7 @@ def example_error_handling():
     logger.info("=" * 60)
 
     # Task that might fail
-    result = risky_operation.delay('OP-12345')
+    result = risky_operation.delay("OP-12345")
     logger.info(f"Task sent with ID: {result.id}")
 
     try:
@@ -149,6 +160,7 @@ def example_error_handling():
 # ============================================================================
 # RETRIEVING TASK BY ID
 # ============================================================================
+
 
 def example_retrieve_by_id():
     """
@@ -183,6 +195,7 @@ def example_retrieve_by_id():
 # TASK CHAINS
 # ============================================================================
 
+
 def example_task_chain():
     """
     Example 6: Chaining tasks (pipeline)
@@ -192,11 +205,7 @@ def example_task_chain():
     logger.info("=" * 60)
 
     # Create a chain: step1 | step2 | step3
-    workflow = chain(
-        process_step_1.s(5),
-        process_step_2.s(),
-        process_step_3.s()
-    )
+    workflow = chain(process_step_1.s(5), process_step_2.s(), process_step_3.s())
 
     # Execute chain
     result = workflow.apply_async()
@@ -213,6 +222,7 @@ def example_task_chain():
 # TASK GROUPS (Parallel Execution)
 # ============================================================================
 
+
 def example_task_group():
     """
     Example 7: Running tasks in parallel using group
@@ -222,13 +232,15 @@ def example_task_group():
     logger.info("=" * 60)
 
     # Create group of parallel tasks
-    job = group([
-        parallel_task.s(1),
-        parallel_task.s(2),
-        parallel_task.s(3),
-        parallel_task.s(4),
-        parallel_task.s(5)
-    ])
+    job = group(
+        [
+            parallel_task.s(1),
+            parallel_task.s(2),
+            parallel_task.s(3),
+            parallel_task.s(4),
+            parallel_task.s(5),
+        ]
+    )
 
     # Execute group
     result = job.apply_async()
@@ -245,6 +257,7 @@ def example_task_group():
 # TASK CHORD (Group + Callback)
 # ============================================================================
 
+
 def example_task_chord():
     """
     Example 8: Using chord (group with callback)
@@ -255,11 +268,7 @@ def example_task_chord():
 
     # Create chord: parallel tasks + callback
     callback = add.s()  # This will receive list of results
-    job = chord([
-        multiply.s(2, 2),
-        multiply.s(3, 3),
-        multiply.s(4, 4)
-    ])(callback)
+    job = chord([multiply.s(2, 2), multiply.s(3, 3), multiply.s(4, 4)])(callback)
 
     logger.info(f"Chord started with ID: {job.id}")
 
@@ -274,6 +283,7 @@ def example_task_chord():
 # CUSTOM STATE HANDLING
 # ============================================================================
 
+
 def example_custom_state():
     """
     Example 9: Handling custom task states
@@ -283,7 +293,7 @@ def example_custom_state():
     logger.info("=" * 60)
 
     # Send task with custom states
-    result = download_file.delay('https://example.com/file.zip')
+    result = download_file.delay("https://example.com/file.zip")
     logger.info(f"Download task sent with ID: {result.id}")
 
     # Monitor custom state
@@ -291,9 +301,9 @@ def example_custom_state():
         state = result.state
         logger.info(f"Current state: {state}")
 
-        if state == 'DOWNLOADING':
+        if state == "DOWNLOADING":
             info = result.info
-            progress = info.get('progress', 0)
+            progress = info.get("progress", 0)
             logger.info(f"Download progress: {progress}%")
 
         time.sleep(1)
@@ -308,6 +318,7 @@ def example_custom_state():
 # ============================================================================
 # TIMEOUT HANDLING
 # ============================================================================
+
 
 def example_timeout():
     """
@@ -340,6 +351,7 @@ def example_timeout():
 # ============================================================================
 # MAIN EXECUTION
 # ============================================================================
+
 
 def main():
     """
@@ -378,5 +390,5 @@ def main():
     logger.info("=" * 60)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

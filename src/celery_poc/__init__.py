@@ -19,16 +19,16 @@ from celery_poc.tasks import (
 )
 
 __all__ = [
-    'app',
-    'add',
-    'multiply',
-    'divide',
-    'process_data',
-    'download_file',
-    'risky_operation',
-    'parallel_task',
-    'process_step_1',
-    'process_step_2',
-    'process_step_3',
-    'cleanup_old_data',
+    "app",
+    "add",
+    "multiply",
+    "divide",
+    "process_data",
+    "download_file",
+    "risky_operation",
+    "parallel_task",
+    "process_step_1",
+    "process_step_2",
+    "process_step_3",
+    "cleanup_old_data",
 ]

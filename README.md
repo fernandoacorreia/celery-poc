@@ -8,41 +8,30 @@ Celery Proof of Concept
 
 ### Setup Development Environment
 ```bash
-# Create virtual environment
-uv venv --python 3.12
+# Create virtual environment and install dependencies
+uv sync --dev
 
 # Activate the virtual environment
 source .venv/bin/activate
-
-# Install dependencies and create virtual environment
-uv sync --dev
 ```
 
-### Running the Application
+### Development workflow
 ```bash
-# Run the main application
-uv run python -m celery_poc.main
+# Lint
+./dev lint
+
+# Run tests
+./dev test
+
+# Start all services (Redis, Worker, Flower)
+docker-compose up -d
+
+# Run the client examples
+uv run python -m celery_poc.client
+
+# View worker logs
+docker-compose logs -f worker
+
+# Access Flower monitoring dashboard
+open http://localhost:5555
 ```
-
-### Code Formatting and Linting
-```bash
-# Format code with black
-uv run --dev -m black .
-
-# Lint code with ruff
-uv run --dev -m ruff check --fix .
-```
-
-### Testing
-```bash
-# Run unit tests
-uv run pytest -v
-```
-
-### Building
-```bash
-# Build wheel file
-uv build
-```
-
-The wheel file will be created in the `dist/` directory.
