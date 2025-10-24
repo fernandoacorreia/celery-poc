@@ -25,7 +25,7 @@ broker_connection_max_retries = 10
 # ============================================================================
 
 # Redis as result backend
-result_backend = 'redis://redis:6379/1'
+result_backend = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/1')
 
 # Result expiration time (24 hours)
 result_expires = 86400

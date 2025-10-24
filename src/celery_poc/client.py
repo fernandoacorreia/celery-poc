@@ -11,6 +11,7 @@ from celery_poc.tasks import (
     download_file, risky_operation, parallel_task,
     process_step_1, process_step_2, process_step_3
 )
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(
@@ -344,6 +345,9 @@ def main():
     """
     Run all examples
     """
+
+    load_dotenv()
+
     logger.info("\n" + "=" * 60)
     logger.info("CELERY CLIENT EXAMPLES")
     logger.info("=" * 60 + "\n")

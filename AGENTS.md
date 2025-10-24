@@ -251,6 +251,14 @@ docker image prune -f
 docker-compose down -v --rmi all
 ```
 
+### Running client CLI app
+
+The client application will submit tasks and wait for them to finish.
+
+```
+uv run python -m celery_poc.client
+```
+
 ### Accessing Flower Dashboard
 
 Once services are running, access the Flower monitoring dashboard at:
