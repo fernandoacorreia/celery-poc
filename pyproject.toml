@@ -1,0 +1,43 @@
+[build-system]
+requires = ["uv-build"]
+build-backend = "uv_build"
+
+[project]
+name = "celery-poc"
+version = "0.1.0"
+description = "Celery Proof of Concept"
+authors = [
+    { name = "Fernando Correia", email = "fernandoacorreia@gmail.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "black",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "--tb=short --import-mode=importlib"
