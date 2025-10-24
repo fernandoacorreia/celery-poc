@@ -92,7 +92,7 @@ This proof of concept demonstrates a production-ready implementation of Celery w
 │  (Retrieves result using AsyncResult.get())                     │
 └─────────────────────────────────────────────────────────────────┘
 
-Optional Monitoring:
+Required Monitoring:
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FLOWER (Web UI)                            │
 │  • Real-time task monitoring                                    │
@@ -195,17 +195,23 @@ CLIENT          BROKER (Redis)       WORKER          BACKEND (Redis)
 | Task Queue | Celery | 5.5.x | Distributed task processing |
 | Message Broker | Redis | 7.x | Message transport and storage |
 | Result Backend | Redis | 7.x | Task result storage |
-| Language | Python | 3.8+ | Application development |
+| Language | Python | 3.12 | Application development |
+| Package Manager | uv | Latest | Fast Python package installer |
 | Containerization | Docker | Latest | Environment isolation |
 | Orchestration | Docker Compose | Latest | Multi-container management |
-| Monitoring (Optional) | Flower | 2.x | Web-based monitoring |
+| Monitoring | Flower | 2.x | Web-based monitoring (required) |
 
 ### Python Dependencies
 
-```
-celery[redis]==5.5.3
-redis==5.0.1
-flower==2.0.1  # Optional monitoring
+Added to `pyproject.toml`:
+```toml
+dependencies = [
+    "celery[redis]",
+    "redis",
+    "flower",
+    "pydantic",
+    "python-dotenv",
+]
 ```
 
 ---
@@ -213,31 +219,38 @@ flower==2.0.1  # Optional monitoring
 ## Project Structure
 
 ```
-celery-redis-poc/
+celery-poc/
 ├── docker-compose.yml          # Container orchestration
-├── requirements.txt            # Python dependencies
-├── .env                        # Environment variables (optional)
-├── .gitignore                  # Git ignore patterns
+├── Dockerfile                  # Python 3.12 + uv image
+├── .dockerignore              # Docker build exclusions
+├── pyproject.toml             # Dependencies (includes celery[redis], flower)
+├── uv.lock                    # Locked dependencies
+├── .env                       # Environment variables
+├── example.env                # Environment variable template
+├── .gitignore                 # Git ignore patterns
 │
-├── app/                        # Application code
+├── src/celery_poc/            # Main application code
 │   ├── __init__.py
-│   ├── tasks.py               # Task definitions
-│   ├── celeryconfig.py        # Celery configuration
-│   └── client.py              # Task caller examples
+│   ├── main.py               # Existing main application
+│   ├── tasks.py              # Celery task definitions
+│   ├── celeryconfig.py       # Celery configuration
+│   └── client.py             # Task caller examples
 │
-├── tests/                      # Test suite
+├── scripts/                   # Development CLI
+│   ├── dev.py                # Main dev script
+│   └── commands/             # Command modules
+│
+├── tests/                     # Test suite
 │   ├── __init__.py
-│   ├── test_tasks.py
-│   └── test_integration.py
+│   ├── conftest.py           # Pytest fixtures
+│   ├── test_main.py          # Main app tests
+│   ├── test_tasks.py         # Celery task tests
+│   └── test_integration.py   # Integration tests
 │
-├── logs/                       # Application logs
-│   ├── celery.log
-│   └── worker.log
+├── logs/                      # Application logs (Docker volume)
 │
-└── docs/                       # Documentation
-    ├── README.md              # Quick start guide
-    ├── PLAN.md                # This file
-    └── ARCHITECTURE.md        # Detailed architecture
+└── plans/                     # Documentation
+    └── INITIAL_PLAN.md       # This file
 ```
 
 ---
@@ -338,11 +351,11 @@ def example_task(self, arg1, arg2):
 The Celery application should be initialized once and imported everywhere:
 
 ```python
-# tasks.py - Single point of initialization
+# src/celery_poc/tasks.py - Single point of initialization
 from celery import Celery
 
-app = Celery('celery_redis_poc')
-app.config_from_object('celeryconfig')
+app = Celery('celery_poc')
+app.config_from_object('celery_poc.celeryconfig')
 
 # Now define tasks
 @app.task
@@ -355,11 +368,11 @@ def my_task():
 Follow a clear naming convention for tasks:
 
 - **Pattern**: `module.function_name`
-- **Example**: `tasks.process_data`, `tasks.send_email`
+- **Example**: `celery_poc.tasks.process_data`, `celery_poc.tasks.send_email`
 - **Explicit Naming**: Use `name` parameter for clarity
 
 ```python
-@app.task(name='tasks.process_data')
+@app.task(name='celery_poc.tasks.process_data')
 def process_data(data):
     pass
 ```
@@ -501,8 +514,8 @@ worker_task_log_format = '[%(asctime)s: %(levelname)s/%(processName)s][%(task_na
 
 # Define task routing
 task_routes = {
-    'tasks.quick_task': {'queue': 'quick'},
-    'tasks.slow_task': {'queue': 'slow'},
+    'celery_poc.tasks.quick_task': {'queue': 'quick'},
+    'celery_poc.tasks.slow_task': {'queue': 'slow'},
 }
 
 # Default queue
@@ -522,7 +535,7 @@ task_queues = (
 # ============================================================================
 
 task_annotations = {
-    'tasks.slow_task': {
+    'celery_poc.tasks.slow_task': {
         'rate_limit': '10/m',  # 10 tasks per minute
         'time_limit': 300,     # Hard time limit (5 minutes)
         'soft_time_limit': 240,  # Soft time limit (4 minutes)
@@ -546,8 +559,8 @@ from celery.exceptions import SoftTimeLimitExceeded
 logger = logging.getLogger(__name__)
 
 # Initialize Celery app
-app = Celery('celery_redis_poc')
-app.config_from_object('celeryconfig')
+app = Celery('celery_poc')
+app.config_from_object('celery_poc.celeryconfig')
 
 
 # ============================================================================
@@ -573,7 +586,7 @@ class CallbackTask(Task):
 # SIMPLE TASKS
 # ============================================================================
 
-@app.task(name='tasks.add', bind=False)
+@app.task(name='celery_poc.tasks.add', bind=False)
 def add(x, y):
     """
     Simple addition task - demonstrates basic task definition
@@ -591,7 +604,7 @@ def add(x, y):
     return result
 
 
-@app.task(name='tasks.multiply', bind=False)
+@app.task(name='celery_poc.tasks.multiply', bind=False)
 def multiply(x, y):
     """
     Simple multiplication task
@@ -612,7 +625,7 @@ def multiply(x, y):
 # ============================================================================
 
 @app.task(
-    name='tasks.divide',
+    name='celery_poc.tasks.divide',
     bind=True,
     autoretry_for=(ZeroDivisionError,),
     retry_kwargs={'max_retries': 3, 'countdown': 5},
@@ -649,7 +662,7 @@ def divide(self, x, y):
 # ============================================================================
 
 @app.task(
-    name='tasks.process_data',
+    name='celery_poc.tasks.process_data',
     bind=True,
     time_limit=120,  # Hard time limit (2 minutes)
     soft_time_limit=100  # Soft time limit (100 seconds)
@@ -708,7 +721,7 @@ def process_data(self, data_size):
 # TASK WITH CUSTOM STATE
 # ============================================================================
 
-@app.task(name='tasks.download_file', bind=True)
+@app.task(name='celery_poc.tasks.download_file', bind=True)
 def download_file(self, url):
     """
     Simulates file download with custom state updates
@@ -744,7 +757,7 @@ def download_file(self, url):
 # TASK WITH ERROR HANDLING
 # ============================================================================
 
-@app.task(name='tasks.risky_operation', bind=True, base=CallbackTask)
+@app.task(name='celery_poc.tasks.risky_operation', bind=True, base=CallbackTask)
 def risky_operation(self, operation_id):
     """
     Task that demonstrates comprehensive error handling
@@ -788,14 +801,14 @@ def risky_operation(self, operation_id):
 # CHAINED TASKS EXAMPLE
 # ============================================================================
 
-@app.task(name='tasks.process_step_1')
+@app.task(name='celery_poc.tasks.process_step_1')
 def process_step_1(data):
     """First step in a processing chain"""
     logger.info(f"Step 1: Processing {data}")
     return {'step': 1, 'data': data, 'result': data * 2}
 
 
-@app.task(name='tasks.process_step_2')
+@app.task(name='celery_poc.tasks.process_step_2')
 def process_step_2(previous_result):
     """Second step in a processing chain"""
     logger.info(f"Step 2: Processing {previous_result}")
@@ -803,7 +816,7 @@ def process_step_2(previous_result):
     return {'step': 2, 'data': data, 'result': data + 10}
 
 
-@app.task(name='tasks.process_step_3')
+@app.task(name='celery_poc.tasks.process_step_3')
 def process_step_3(previous_result):
     """Final step in a processing chain"""
     logger.info(f"Step 3: Processing {previous_result}")
@@ -815,7 +828,7 @@ def process_step_3(previous_result):
 # PERIODIC TASK EXAMPLE (Requires celery beat)
 # ============================================================================
 
-@app.task(name='tasks.cleanup_old_data')
+@app.task(name='celery_poc.tasks.cleanup_old_data')
 def cleanup_old_data():
     """
     Periodic task to clean up old data
@@ -832,7 +845,7 @@ def cleanup_old_data():
 # GROUP TASK EXAMPLE
 # ============================================================================
 
-@app.task(name='tasks.parallel_task')
+@app.task(name='celery_poc.tasks.parallel_task')
 def parallel_task(item_id):
     """
     Task designed to be run in parallel groups
@@ -859,7 +872,7 @@ import time
 import logging
 from celery import group, chain, chord
 from celery.result import AsyncResult
-from tasks import (
+from celery_poc.tasks import (
     app, add, multiply, divide, process_data,
     download_file, risky_operation, parallel_task,
     process_step_1, process_step_2, process_step_3
@@ -1269,9 +1282,9 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: celery-worker
-    command: celery -A tasks worker --loglevel=info --concurrency=4
+    command: uv run celery -A celery_poc.tasks worker --loglevel=info --concurrency=4
     volumes:
-      - ./app:/app
+      - ./src:/app/src
       - ./logs:/logs
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
@@ -1289,14 +1302,14 @@ services:
           memory: 512M
 
   # ============================================================================
-  # Flower Monitoring Service (Optional)
+  # Flower Monitoring Service (Required for this POC)
   # ============================================================================
   flower:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: celery-flower
-    command: celery -A tasks flower --port=5555
+    command: uv run celery -A celery_poc.tasks flower --port=5555
     ports:
       - "5555:5555"
     environment:
@@ -1327,24 +1340,27 @@ volumes:
 ### 5. Dockerfile
 
 ```dockerfile
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies and uv
 RUN apt-get update && apt-get install -y \
     gcc \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Copy requirements
-COPY requirements.txt .
+# Add uv to PATH
+ENV PATH="/root/.cargo/bin:$PATH"
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy project files
+COPY pyproject.toml uv.lock ./
+COPY src/ ./src/
 
-# Copy application code
-COPY app/ .
+# Install dependencies using uv
+RUN uv sync --frozen
 
 # Create logs directory
 RUN mkdir -p /logs
@@ -1355,7 +1371,7 @@ ENV CELERY_BROKER_URL=redis://redis:6379/0
 ENV CELERY_RESULT_BACKEND=redis://redis:6379/1
 
 # Default command (can be overridden in docker-compose)
-CMD ["celery", "-A", "tasks", "worker", "--loglevel=info"]
+CMD ["uv", "run", "celery", "-A", "celery_poc.tasks", "worker", "--loglevel=info"]
 ```
 
 ---
@@ -1394,9 +1410,9 @@ worker:
 - Regular backups
 
 3. **Monitoring**
-- Enable Flower dashboard
-- Integrate with Prometheus/Grafana
-- Set up alerting
+- Flower dashboard is included by default
+- Consider integrating with Prometheus/Grafana for advanced metrics
+- Set up alerting for critical failures
 
 4. **Security**
 - Use Redis AUTH
@@ -1412,7 +1428,7 @@ worker:
 ```python
 # tests/test_tasks.py
 from celery import Celery
-from tasks import add, multiply
+from celery_poc.tasks import add, multiply
 
 def test_add():
     result = add.apply(args=[2, 2]).get()
@@ -1428,7 +1444,7 @@ def test_multiply():
 ```python
 # tests/test_integration.py
 import pytest
-from tasks import app, add
+from celery_poc.tasks import app, add
 
 @pytest.fixture
 def celery_config():
@@ -1578,19 +1594,22 @@ task.apply_async(args=[...], priority=9)  # 0-9, higher = more priority
 
 ```bash
 # Check worker status
-celery -A tasks inspect active
+celery -A celery_poc.tasks inspect active
 
 # Check registered tasks
-celery -A tasks inspect registered
+celery -A celery_poc.tasks inspect registered
 
 # Purge queue
-celery -A tasks purge
+celery -A celery_poc.tasks purge
 
 # Revoke task
-celery -A tasks revoke <task-id>
+celery -A celery_poc.tasks revoke <task-id>
 
 # Check stats
-celery -A tasks inspect stats
+celery -A celery_poc.tasks inspect stats
+
+# Or use uv to run these commands
+uv run celery -A celery_poc.tasks inspect active
 ```
 
 ---

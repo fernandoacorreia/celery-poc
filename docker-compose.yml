@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Redis Service (Broker + Backend)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: celery-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - celery-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # Celery Worker Service
+  # ============================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: celery-worker
+    command: uv run celery -A celery_poc.tasks worker --loglevel=info --concurrency=4
+    volumes:
+      - ./src:/app/src
+      - ./logs:/logs
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - celery-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+
+  # ============================================================================
+  # Flower Monitoring Service (Required for this POC)
+  # ============================================================================
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: celery-flower
+    command: uv run celery -A celery_poc.tasks flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+      - worker
+    networks:
+      - celery-network
+    restart: unless-stopped
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  celery-network:
+    driver: bridge
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  redis_data:
+    driver: local
