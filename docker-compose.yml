@@ -32,7 +32,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: celery-worker
-    command: uv run celery -A celery_poc.tasks worker --loglevel=info --concurrency=4
+    command: uv run celery -A celery_poc.tasks worker --loglevel=INFO --concurrency=4
     volumes:
       - ./src:/app/src
       - ./logs:/logs
