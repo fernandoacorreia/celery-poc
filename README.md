@@ -34,4 +34,7 @@ docker-compose logs -f worker
 
 # Access Flower monitoring dashboard
 open http://localhost:5555
+
+# Access Redis Commander UI
+open http://localhost:8082
 ```
