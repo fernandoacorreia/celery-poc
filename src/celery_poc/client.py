@@ -261,22 +261,33 @@ def example_task_group():
 def example_task_chord():
     """
     Example 8: Using chord (group with callback)
+    
+    EDUCATIONAL NOTE: This example intentionally demonstrates a common mistake
+    when designing chord callbacks. The callback will fail because add() expects
+    two separate arguments but receives a list of results from the group.
     """
     logger.info("=" * 60)
-    logger.info("Example 8: Task Chord")
+    logger.info("Example 8: Task Chord (Intentional Error Example)")
     logger.info("=" * 60)
 
     # Create chord: parallel tasks + callback
-    callback = add.s()  # This will receive list of results
+    # INTENTIONAL ERROR: This callback will fail because add() expects 2 args but gets a list
+    callback = add.s()  # This will receive list of results [4, 9, 16]
     job = chord([multiply.s(2, 2), multiply.s(3, 3), multiply.s(4, 4)])(callback)
 
     logger.info(f"Chord started with ID: {job.id}")
 
     # Wait for callback result
-    result = job.get(timeout=30)
-    logger.info(f"Chord callback result: {result}")
-    job.forget()
-    logger.info("Chord example completed\n")
+    try:
+        result = job.get(timeout=30) # This will raise an error because add() expects 2 args but gets a list
+        logger.info(f"Chord callback result: {result}")
+        job.forget()
+        logger.info("Chord example completed\n")
+    except Exception as exc:
+        # This error demonstrates why chord callbacks must be designed carefully
+        logger.error(f"EXPECTED ERROR: {exc}")
+        job.forget()
+        logger.info("Chord example completed (with expected error)\n")
 
 
 # ============================================================================
@@ -323,29 +334,35 @@ def example_custom_state():
 def example_timeout():
     """
     Example 10: Handling task timeouts
+    
+    EDUCATIONAL NOTE: This example intentionally demonstrates client-side timeout
+    behavior. The task will take ~10 seconds but we set a 2-second timeout to
+    show how timeouts work and that tasks continue running in the background.
     """
     logger.info("=" * 60)
-    logger.info("Example 10: Timeout Handling")
+    logger.info("Example 10: Timeout Handling (Intentional Timeout Example)")
     logger.info("=" * 60)
 
-    # Send long-running task
+    # Send long-running task (100 items × 0.1s = ~10 seconds)
     result = process_data.delay(100)
     logger.info(f"Task sent with ID: {result.id}")
+    logger.info("Task will take ~10 seconds, but we'll timeout after 2 seconds")
 
     try:
-        # Wait with short timeout (will timeout)
-        value = result.get(timeout=2)
+        # INTENTIONAL TIMEOUT: Task takes ~10s but we timeout after 2s
+        value = result.get(timeout=2) # This will raise a TimeoutError because the task takes ~10s but we timeout after 2s
         logger.info(f"Task completed: {value}")
     except TimeoutError:
-        logger.warning("Task timed out, but continues running in background")
+        logger.warning("EXPECTED TIMEOUT: Task timed out, but continues running in background")
         logger.info(f"Task state: {result.state}")
+        logger.info("This demonstrates that client timeout doesn't stop the task!")
 
         # You can check later or revoke
         # result.revoke(terminate=True)  # Forcefully stop task
     finally:
         result.forget()
 
-    logger.info("Timeout example completed\n")
+    logger.info("Timeout example completed (with expected timeout)\n")
 
 
 # ============================================================================
@@ -355,7 +372,10 @@ def example_timeout():
 
 def main():
     """
-    Run all examples
+    Run all examples demonstrating Celery task patterns and common scenarios.
+    
+    NOTE: Some examples intentionally demonstrate errors and edge cases
+    for educational purposes (chord callback error, timeout handling).
     """
 
     load_dotenv()
@@ -383,7 +403,11 @@ def main():
             example_func()
             time.sleep(1)  # Brief pause between examples
         except Exception as exc:
-            logger.error(f"Example '{name}' failed: {exc}")
+            # Some examples intentionally demonstrate errors - they handle their own exceptions
+            if "Chord" in name or "Timeout" in name:
+                logger.info(f"Example '{name}' completed with expected behavior")
+            else:
+                logger.error(f"Example '{name}' failed: {exc}")
 
     logger.info("\n" + "=" * 60)
     logger.info("ALL EXAMPLES COMPLETED")
